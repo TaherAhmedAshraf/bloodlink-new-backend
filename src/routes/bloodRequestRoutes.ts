@@ -4,7 +4,10 @@ import {
   getBloodRequests, 
   getBloodRequestDetails, 
   acceptBloodRequest,
-  completeBloodRequest
+  completeBloodRequest,
+  cancelBloodRequest,
+  reportDonor,
+  requestChangeDonor
 } from '../controllers/bloodRequestController';
 import { protect } from '../middleware/authMiddleware';
 
@@ -20,5 +23,8 @@ router.route('/')
 router.get('/:requestId', getBloodRequestDetails);
 router.post('/:requestId/accept', acceptBloodRequest);
 router.post('/:requestId/complete', completeBloodRequest);
+router.post('/:requestId/cancel', cancelBloodRequest);
+router.post('/:requestId/report-donor', reportDonor);
+router.post('/:requestId/change-donor', requestChangeDonor);
 
 export default router; 

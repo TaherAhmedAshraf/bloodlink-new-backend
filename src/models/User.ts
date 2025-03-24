@@ -13,6 +13,9 @@ export interface IUser extends Document {
   role: string;
   createdAt: Date;
   updatedAt: Date;
+  reportCount: number;
+  reportedRequests: mongoose.Types.ObjectId[];
+  isBlacklisted: boolean;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -56,12 +59,23 @@ const UserSchema: Schema = new Schema({
     type: String,
     enum: ['user', 'admin'],
     default: 'user'
+  },
+  reportCount: {
+    type: Number,
+    default: 0
+  },
+  reportedRequests: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BloodRequest'
+  }],
+  isBlacklisted: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
-
 
 export default mongoose.model<IUser>('User', UserSchema); 

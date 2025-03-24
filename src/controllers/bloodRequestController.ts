@@ -188,8 +188,10 @@ export const acceptBloodRequest = async (req: AuthRequest, res: Response, next: 
       return next(new AppError('User ID not found in request', 401));
     }
     
-    if (!mongoose.Types.ObjectId.isValid(requestId)) {
-      return next(new AppError('Invalid request ID', 400));
+    // Check if user is blacklisted
+    const user = await User.findById(userId);
+    if (user?.isBlacklisted) {
+      return next(new AppError('You are currently not allowed to accept blood requests', 403));
     }
     
     // Find blood request
@@ -300,5 +302,218 @@ export const completeBloodRequest = async (req: AuthRequest, res: Response, next
   } catch (error) {
     logger.error('Error completing blood request', error);
     next(new AppError('Failed to complete blood request', 500));
+  }
+};
+
+export const cancelBloodRequest = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { requestId } = req.params;
+    const { reason } = req.body;
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return next(new AppError('User ID not found in request', 401));
+    }
+    
+    // Find blood request
+    const bloodRequest = await BloodRequest.findById(requestId);
+    
+    if (!bloodRequest) {
+      return next(new AppError('Blood request not found', 404));
+    }
+    
+    // Check if user is the requester
+    if (bloodRequest.requester.toString() !== userId) {
+      return next(new AppError('You can only cancel your own blood requests', 403));
+    }
+    
+    // Check if request is already completed or cancelled
+    if (bloodRequest.status === 'completed' || bloodRequest.status === 'cancelled') {
+      return next(new AppError(`This blood request is already ${bloodRequest.status}`, 400));
+    }
+    
+    // Update blood request status
+    bloodRequest.status = 'cancelled';
+    bloodRequest.cancelReason = reason || 'No reason provided';
+    await bloodRequest.save();
+    
+    // If the request was accepted, notify the donor
+    if (bloodRequest.acceptedBy) {
+      const requesterUser = await User.findById(userId);
+      
+      await Notification.create({
+        type: 'request_cancelled',
+        user: bloodRequest.acceptedBy,
+        relatedUser: userId,
+        message: `${requesterUser?.name} has cancelled their blood request`,
+        isRead: false
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Blood request cancelled successfully',
+      requestId: bloodRequest._id,
+      status: bloodRequest.status
+    });
+  } catch (error) {
+    logger.error('Error cancelling blood request', error);
+    next(new AppError('Failed to cancel blood request', 500));
+  }
+};
+
+export const reportDonor = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { requestId } = req.params;
+    const { reason } = req.body;
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return next(new AppError('User ID not found in request', 401));
+    }
+    
+    if (!reason) {
+      return next(new AppError('Reason for reporting is required', 400));
+    }
+    
+    // Find blood request
+    const bloodRequest = await BloodRequest.findById(requestId);
+    
+    if (!bloodRequest) {
+      return next(new AppError('Blood request not found', 404));
+    }
+    
+    // Check if user is the requester
+    if (bloodRequest.requester.toString() !== userId) {
+      return next(new AppError('You can only report donors for your own blood requests', 403));
+    }
+    
+    // Check if request has an acceptor
+    if (!bloodRequest.acceptedBy) {
+      return next(new AppError('This blood request has not been accepted by any donor', 400));
+    }
+    
+    // Check if request is in the right state
+    if (bloodRequest.status !== 'accepted') {
+      return next(new AppError(`Cannot report donor for a request with status: ${bloodRequest.status}`, 400));
+    }
+    
+    // Update blood request
+    bloodRequest.isReported = true;
+    bloodRequest.reportReason = reason;
+    await bloodRequest.save();
+    
+    // Update donor's report information
+    const donorId = bloodRequest.acceptedBy;
+    const donor = await User.findById(donorId);
+    
+    if (donor) {
+      // Increment report count
+      donor.reportCount = (donor.reportCount || 0) + 1;
+      
+      // Add this request to the donor's reported requests
+      if (!donor.reportedRequests) {
+        donor.reportedRequests = [];
+      }
+      donor.reportedRequests.push(bloodRequest._id);
+      
+      // Automatically blacklist users with 3 or more reports
+      if (donor.reportCount >= 3) {
+        donor.isBlacklisted = true;
+        
+        // Create notification for admin about blacklisted user
+        logger.warn(`User ${donor._id} (${donor.name}) has been blacklisted due to multiple reports`);
+      }
+      
+      await donor.save();
+    }
+    
+    // Create notification for admin
+    logger.info(`Donor ${donorId} reported for request ${requestId}. Reason: ${reason}`);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Donor reported successfully',
+      requestId: bloodRequest._id
+    });
+  } catch (error) {
+    logger.error('Error reporting donor', error);
+    next(new AppError('Failed to report donor', 500));
+  }
+};
+
+export const requestChangeDonor = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { requestId } = req.params;
+    const { reason } = req.body;
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return next(new AppError('User ID not found in request', 401));
+    }
+    
+    if (!reason) {
+      return next(new AppError('Reason for changing donor is required', 400));
+    }
+    
+    // Find blood request
+    const bloodRequest = await BloodRequest.findById(requestId);
+    
+    if (!bloodRequest) {
+      return next(new AppError('Blood request not found', 404));
+    }
+    
+    // Check if user is the requester
+    if (bloodRequest.requester.toString() !== userId) {
+      return next(new AppError('You can only request to change donors for your own blood requests', 403));
+    }
+    
+    // Check if request has an acceptor
+    if (!bloodRequest.acceptedBy) {
+      return next(new AppError('This blood request has not been accepted by any donor', 400));
+    }
+    
+    // Check if request is in the right state
+    if (bloodRequest.status !== 'accepted') {
+      return next(new AppError(`Cannot change donor for a request with status: ${bloodRequest.status}`, 400));
+    }
+    
+    // Get current donor info
+    const currentDonor = await User.findById(bloodRequest.acceptedBy);
+    
+    // Update blood request
+    bloodRequest.status = 'active'; // Reset to active
+    bloodRequest.changeRequested = true;
+    bloodRequest.changeReason = reason;
+    
+    // Store the previous donor ID temporarily (for notification)
+    const previousDonorId = bloodRequest.acceptedBy;
+    
+    // Clear the acceptedBy field
+    bloodRequest.acceptedBy = undefined;
+    await bloodRequest.save();
+    
+    // Notify the previous donor
+    if (previousDonorId) {
+      const requesterUser = await User.findById(userId);
+      
+      await Notification.create({
+        type: 'donor_changed',
+        user: previousDonorId,
+        relatedUser: userId,
+        message: `${requesterUser?.name} has requested a different donor for their blood request`,
+        isRead: false
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Request to change donor submitted successfully',
+      requestId: bloodRequest._id,
+      status: bloodRequest.status
+    });
+  } catch (error) {
+    logger.error('Error requesting donor change', error);
+    next(new AppError('Failed to request donor change', 500));
   }
 }; 

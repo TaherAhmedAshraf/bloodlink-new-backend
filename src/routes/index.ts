@@ -5,6 +5,7 @@ import bloodRequestRoutes from './bloodRequestRoutes';
 import bloodBankRoutes from './bloodBankRoutes';
 import notificationRoutes from './notificationRoutes';
 import chatRoutes from './chatRoutes';
+import adminRoutes from './adminRoutes';
 import healthRoutes from './healthRoutes';
 
 const router = Router();
@@ -29,5 +30,8 @@ router.use('/notifications', notificationRoutes);
 
 // Chat routes
 router.use('/chat', chatRoutes);
+
+// Admin routes
+router.use('/admin', adminRoutes);
 
 export default router; 

@@ -18,6 +18,11 @@ export interface IBloodRequest extends Document {
   createdAt: Date;
   updatedAt: Date;
   completedAt?: Date;
+  cancelReason?: string;
+  reportReason?: string;
+  isReported: boolean;
+  changeRequested: boolean;
+  changeReason?: string;
 }
 
 const BloodRequestSchema: Schema = new Schema({
@@ -84,6 +89,23 @@ const BloodRequestSchema: Schema = new Schema({
   },
   completedAt: {
     type: Date
+  },
+  cancelReason: {
+    type: String
+  },
+  reportReason: {
+    type: String
+  },
+  isReported: {
+    type: Boolean,
+    default: false
+  },
+  changeRequested: {
+    type: Boolean,
+    default: false
+  },
+  changeReason: {
+    type: String
   }
 }, {
   timestamps: true
