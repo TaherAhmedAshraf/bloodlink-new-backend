@@ -106,7 +106,8 @@ export const getBloodRequests = async (req: Request, res: Response, next: NextFu
         createdAt: req.createdAt,
         status: req.status,
         viewCount: req.viewCount,
-        daysAgo: diffDays
+        daysAgo: diffDays,
+        bagNeeded: req.bagNeeded
       };
     });
     
@@ -220,6 +221,7 @@ export const acceptBloodRequest = async (req: AuthRequest, res: Response, next: 
     // Create notification for requester
     await Notification.create({
       type: 'request_accepted',
+      title: 'Blood Request Accepted',
       user: bloodRequest.requester,
       relatedUser: userId,
       message: `${acceptingUser?.name} has accepted your blood request`,
@@ -287,6 +289,7 @@ export const completeBloodRequest = async (req: AuthRequest, res: Response, next
     
     await Notification.create({
       type: 'donation_completed',
+      title: 'Blood Donation Completed',
       user: notificationRecipient,
       relatedUser: userId,
       message: `${notificationSender?.name} has marked the blood donation as completed`,
@@ -343,9 +346,10 @@ export const cancelBloodRequest = async (req: AuthRequest, res: Response, next: 
       
       await Notification.create({
         type: 'request_cancelled',
+        title: 'Blood Request Cancelled',
         user: bloodRequest.acceptedBy,
         relatedUser: userId,
-        message: `${requesterUser?.name} has cancelled their blood request`,
+        message: `${requesterUser?.name} has cancelled their blood request. Reason: ${bloodRequest.cancelReason}`,
         isRead: false
       });
     }
@@ -499,6 +503,7 @@ export const requestChangeDonor = async (req: AuthRequest, res: Response, next: 
       
       await Notification.create({
         type: 'donor_changed',
+        title: 'Donor Change Requested',
         user: previousDonorId,
         relatedUser: userId,
         message: `${requesterUser?.name} has requested a different donor for their blood request`,
