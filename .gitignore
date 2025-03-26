@@ -28,4 +28,4 @@ coverage/
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db src/firebase-credentials.json

@@ -1,6 +1,5 @@
 import dotenv from 'dotenv';
 import path from 'path';
-import fs from 'fs';
 
 // Load environment variables
 dotenv.config();
@@ -19,16 +18,14 @@ export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
 // Firebase Config
 let firebaseCredentials;
-const firebaseCredentialsPath = process.env.FIREBASE_CREDENTIALS_PATH || path.join(__dirname, '../firebase-credentials.json');
-
 try {
-  if (fs.existsSync(firebaseCredentialsPath)) {
-    firebaseCredentials = JSON.parse(fs.readFileSync(firebaseCredentialsPath, 'utf8'));
-  } else if (process.env.FIREBASE_CREDENTIALS) {
+  if (process.env.FIREBASE_CREDENTIALS) {
     firebaseCredentials = JSON.parse(process.env.FIREBASE_CREDENTIALS);
+  } else {
+    console.warn('FIREBASE_CREDENTIALS environment variable not found');
   }
 } catch (error) {
-  console.error('Error loading Firebase credentials:', error);
+  console.error('Error parsing Firebase credentials:', error);
 }
 
 export const FIREBASE_CREDENTIALS = firebaseCredentials; 

@@ -9,10 +9,15 @@ import { NotificationType } from '../models/Notification';
 try {
   // Check if app is already initialized to prevent multiple initializations
   if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert(FIREBASE_CREDENTIALS as admin.ServiceAccount)
-    });
-    logger.info('Firebase Admin SDK initialized successfully');
+    // Use environment variable-based credentials
+    if (FIREBASE_CREDENTIALS) {
+      admin.initializeApp({
+        credential: admin.credential.cert(FIREBASE_CREDENTIALS as admin.ServiceAccount)
+      });
+      logger.info('Firebase Admin SDK initialized successfully');
+    } else {
+      logger.warn('Firebase credentials not found, push notifications will not work');
+    }
   }
 } catch (error) {
   logger.error('Error initializing Firebase Admin SDK', error);
