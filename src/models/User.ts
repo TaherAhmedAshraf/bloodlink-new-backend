@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 export interface IUser extends Document {
   name: string;
   phoneNumber: string;
+  password?: string;
   bloodType: string;
   address: string;
   lastDonation?: Date;
@@ -29,6 +30,10 @@ const UserSchema: Schema = new Schema({
     required: [true, 'Phone number is required'],
     unique: true,
     trim: true
+  },
+  password: {
+    type: String,
+    select: false // Don't include password in query results by default
   },
   bloodType: { 
     type: String, 
@@ -77,5 +82,11 @@ const UserSchema: Schema = new Schema({
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
+
+// Method to compare password
+UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
+  if (!this.password) return false;
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
 export default mongoose.model<IUser>('User', UserSchema); 

@@ -1,18 +1,22 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export type NotificationType = 
-  'request_accepted' | 
-  'blood_needed' | 
-  'donation_reminder' | 
-  'request_cancelled' | 
-  'donor_changed' | 
-  'donation_completed' |
-  'system_announcement';
+  | 'request_created'
+  | 'request_accepted'
+  | 'request_completed'
+  | 'request_cancelled'
+  | 'admin_update'
+  | 'system_announcement'
+  | 'blood_needed'
+  | 'donation_reminder'
+  | 'donor_changed'
+  | 'donation_completed';
 
 export interface INotification extends Document {
   type: NotificationType;
   title: string;
   user: mongoose.Types.ObjectId;
+  bloodRequest?: mongoose.Types.ObjectId;
   relatedUser?: mongoose.Types.ObjectId;
   bloodType?: string;
   message: string;
@@ -23,50 +27,60 @@ export interface INotification extends Document {
 }
 
 const NotificationSchema: Schema = new Schema({
-  type: { 
-    type: String, 
+  type: {
+    type: String,
     required: true,
     enum: [
-      'request_accepted', 
-      'blood_needed', 
-      'donation_reminder', 
-      'request_cancelled', 
-      'donor_changed', 
-      'donation_completed',
-      'system_announcement'
+      'request_created',
+      'request_accepted',
+      'request_completed',
+      'request_cancelled',
+      'admin_update',
+      'system_announcement',
+      'blood_needed',
+      'donation_reminder',
+      'donor_changed',
+      'donation_completed'
     ]
   },
   title: {
     type: String,
     required: true
   },
-  user: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  relatedUser: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  bloodRequest: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BloodRequest'
+  },
+  relatedUser: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  bloodType: { 
+  bloodType: {
     type: String,
     enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
   },
-  message: { 
-    type: String, 
+  message: {
+    type: String,
     required: true
   },
-  isRead: { 
-    type: Boolean, 
+  isRead: {
+    type: Boolean,
     default: false
   },
   metadata: {
-    type: Map,
-    of: Schema.Types.Mixed
+    type: Schema.Types.Mixed
   }
 }, {
   timestamps: true
 });
+
+// Add index for faster queries
+NotificationSchema.index({ user: 1, isRead: 1 });
+NotificationSchema.index({ createdAt: -1 });
 
 export default mongoose.model<INotification>('Notification', NotificationSchema); 
